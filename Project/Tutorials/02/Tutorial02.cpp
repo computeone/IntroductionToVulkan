@@ -14,18 +14,18 @@
 // under the License.
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "VulkanCommon.h"
+#include "Tutorial02.h"
 #include "VulkanFunctions.h"
 
 namespace ApiWithoutSecrets {
 
-  VulkanCommon::VulkanCommon() :
+  Tutorial02::Tutorial02() :
     VulkanLibrary(),
     Window(),
     Vulkan() {
   }
 
-  bool VulkanCommon::PrepareVulkan( OS::WindowParameters parameters ) {
+  bool Tutorial02::PrepareVulkan( OS::WindowParameters parameters ) {
     Window = parameters;
 
     if( !LoadVulkanLibrary() ) {
@@ -55,50 +55,13 @@ namespace ApiWithoutSecrets {
     if( !GetDeviceQueue() ) {
       return false;
     }
-    if( !CreateSwapChain() ) {
+    if( !CreateSemaphores() ) {
       return false;
     }
     return true;
   }
 
-  bool VulkanCommon::OnWindowSizeChanged() {
-    if( Vulkan.Device != VK_NULL_HANDLE ) {
-      vkDeviceWaitIdle( Vulkan.Device );
-    }
-
-    ChildClear();
-
-    if( CreateSwapChain() ) {
-      if( CanRender ) {
-        return ChildOnWindowSizeChanged();
-      }
-      return true;
-    }
-
-    return false;
-  }
-
-  VkPhysicalDevice VulkanCommon::GetPhysicalDevice() const {
-    return Vulkan.PhysicalDevice;
-  }
-
-  VkDevice VulkanCommon::GetDevice() const {
-    return Vulkan.Device;
-  }
-
-  const QueueParameters VulkanCommon::GetGraphicsQueue() const {
-    return Vulkan.GraphicsQueue;
-  }
-
-  const QueueParameters VulkanCommon::GetPresentQueue() const {
-    return Vulkan.PresentQueue;
-  }
-
-  const SwapChainParameters& VulkanCommon::GetSwapChain() const {
-    return Vulkan.SwapChain;
-  }
-
-  bool VulkanCommon::LoadVulkanLibrary() {
+  bool Tutorial02::LoadVulkanLibrary() {
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     VulkanLibrary = LoadLibrary( "vulkan-1.dll" );
 #elif defined(VK_USE_PLATFORM_XCB_KHR) || defined(VK_USE_PLATFORM_XLIB_KHR)
@@ -112,7 +75,7 @@ namespace ApiWithoutSecrets {
     return true;
   }
 
-  bool VulkanCommon::LoadExportedEntryPoints() {
+  bool Tutorial02::LoadExportedEntryPoints() {
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     #define LoadProcAddress GetProcAddress
 #elif defined(VK_USE_PLATFORM_XCB_KHR) || defined(VK_USE_PLATFORM_XLIB_KHR)
@@ -130,7 +93,7 @@ namespace ApiWithoutSecrets {
     return true;
   }
 
-  bool VulkanCommon::LoadGlobalLevelEntryPoints() {
+  bool Tutorial02::LoadGlobalLevelEntryPoints() {
 #define VK_GLOBAL_LEVEL_FUNCTION( fun )                                                   \
     if( !(fun = (PFN_##fun)vkGetInstanceProcAddr( nullptr, #fun )) ) {                    \
       std::cout << "Could not load global level function: " << #fun << "!" << std::endl;  \
@@ -142,7 +105,7 @@ namespace ApiWithoutSecrets {
       return true;
   }
 
-  bool VulkanCommon::CreateInstance() {
+  bool Tutorial02::CreateInstance() {
     uint32_t extensions_count = 0;
     if( (vkEnumerateInstanceExtensionProperties( nullptr, &extensions_count, nullptr ) != VK_SUCCESS) ||
         (extensions_count == 0) ) {
@@ -202,7 +165,16 @@ namespace ApiWithoutSecrets {
     return true;
   }
 
-  bool VulkanCommon::LoadInstanceLevelEntryPoints() {
+  bool Tutorial02::CheckExtensionAvailability( const char *extension_name, const std::vector<VkExtensionProperties> &available_extensions ) {
+    for( size_t i = 0; i < available_extensions.size(); ++i ) {
+      if( strcmp( available_extensions[i].extensionName, extension_name ) == 0 ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool Tutorial02::LoadInstanceLevelEntryPoints() {
 #define VK_INSTANCE_LEVEL_FUNCTION( fun )                                                   \
     if( !(fun = (PFN_##fun)vkGetInstanceProcAddr( Vulkan.Instance, #fun )) ) {              \
       std::cout << "Could not load instance level function: " << #fun << "!" << std::endl;  \
@@ -214,7 +186,7 @@ namespace ApiWithoutSecrets {
       return true;
   }
 
-  bool VulkanCommon::CreatePresentationSurface() {
+  bool Tutorial02::CreatePresentationSurface() {
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     VkWin32SurfaceCreateInfoKHR surface_create_info = {
       VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,  // VkStructureType                  sType
@@ -233,7 +205,7 @@ namespace ApiWithoutSecrets {
       VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,    // VkStructureType                  sType
       nullptr,                                          // const void                      *pNext
       0,                                                // VkXcbSurfaceCreateFlagsKHR       flags
-      Window.Connection,                                // xcb_connection_t                *connection
+      Window.Connection,                                // xcb_connection_t*                connection
       Window.Handle                                     // xcb_window_t                     window
     };
 
@@ -259,7 +231,7 @@ namespace ApiWithoutSecrets {
     return false;
   }
 
-  bool VulkanCommon::CreateDevice() {
+  bool Tutorial02::CreateDevice() {
     uint32_t num_devices = 0;
     if( (vkEnumeratePhysicalDevices( Vulkan.Instance, &num_devices, nullptr ) != VK_SUCCESS) ||
         (num_devices == 0) ) {
@@ -332,12 +304,12 @@ namespace ApiWithoutSecrets {
       return false;
     }
 
-    Vulkan.GraphicsQueue.FamilyIndex = selected_graphics_queue_family_index;
-    Vulkan.PresentQueue.FamilyIndex = selected_present_queue_family_index;
+    Vulkan.GraphicsQueueFamilyIndex = selected_graphics_queue_family_index;
+    Vulkan.PresentQueueFamilyIndex = selected_present_queue_family_index;
     return true;
   }
 
-  bool VulkanCommon::CheckPhysicalDeviceProperties( VkPhysicalDevice physical_device, uint32_t &selected_graphics_queue_family_index, uint32_t &selected_present_queue_family_index ) {
+  bool Tutorial02::CheckPhysicalDeviceProperties( VkPhysicalDevice physical_device, uint32_t &selected_graphics_queue_family_index, uint32_t &selected_present_queue_family_index ) {
     uint32_t extensions_count = 0;
     if( (vkEnumerateDeviceExtensionProperties( physical_device, nullptr, &extensions_count, nullptr ) != VK_SUCCESS) ||
         (extensions_count == 0) ) {
@@ -421,7 +393,7 @@ namespace ApiWithoutSecrets {
     // If this device doesn't support queues with graphics and present capabilities don't use it
     if( (graphics_queue_family_index == UINT32_MAX) ||
         (present_queue_family_index == UINT32_MAX) ) {
-      std::cout << "Could not find queue families with required properties on physical device " << physical_device << "!" << std::endl;
+      std::cout << "Could not find queue family with required properties on physical device " << physical_device << "!" << std::endl;
       return false;
     }
 
@@ -430,7 +402,7 @@ namespace ApiWithoutSecrets {
     return true;
   }
 
-  bool VulkanCommon::LoadDeviceLevelEntryPoints() {
+  bool Tutorial02::LoadDeviceLevelEntryPoints() {
 #define VK_DEVICE_LEVEL_FUNCTION( fun )                                                   \
     if( !(fun = (PFN_##fun)vkGetDeviceProcAddr( Vulkan.Device, #fun )) ) {                \
       std::cout << "Could not load device level function: " << #fun << "!" << std::endl;  \
@@ -442,26 +414,34 @@ namespace ApiWithoutSecrets {
       return true;
   }
 
-  bool VulkanCommon::GetDeviceQueue() {
-    vkGetDeviceQueue( Vulkan.Device, Vulkan.GraphicsQueue.FamilyIndex, 0, &Vulkan.GraphicsQueue.Handle );
-    vkGetDeviceQueue( Vulkan.Device, Vulkan.PresentQueue.FamilyIndex, 0, &Vulkan.PresentQueue.Handle );
+  bool Tutorial02::GetDeviceQueue() {
+    vkGetDeviceQueue( Vulkan.Device, Vulkan.GraphicsQueueFamilyIndex, 0, &Vulkan.GraphicsQueue );
+    vkGetDeviceQueue( Vulkan.Device, Vulkan.PresentQueueFamilyIndex, 0, &Vulkan.PresentQueue );
     return true;
   }
 
-  bool VulkanCommon::CreateSwapChain() {
+  bool Tutorial02::CreateSemaphores() {
+    VkSemaphoreCreateInfo semaphore_create_info = {
+      VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,      // VkStructureType          sType
+      nullptr,                                      // const void*              pNext
+      0                                             // VkSemaphoreCreateFlags   flags
+    };
+
+    if( (vkCreateSemaphore( Vulkan.Device, &semaphore_create_info, nullptr, &Vulkan.ImageAvailableSemaphore ) != VK_SUCCESS) ||
+        (vkCreateSemaphore( Vulkan.Device, &semaphore_create_info, nullptr, &Vulkan.RenderingFinishedSemaphore ) != VK_SUCCESS) ) {
+      std::cout << "Could not create semaphores!" << std::endl;
+      return false;
+    }
+
+    return true;
+  }
+
+  bool Tutorial02::CreateSwapChain() {
     CanRender = false;
 
     if( Vulkan.Device != VK_NULL_HANDLE ) {
       vkDeviceWaitIdle( Vulkan.Device );
     }
-
-    for( size_t i = 0; i < Vulkan.SwapChain.Images.size(); ++i ) {
-      if( Vulkan.SwapChain.Images[i].View != VK_NULL_HANDLE ) {
-        vkDestroyImageView( GetDevice(), Vulkan.SwapChain.Images[i].View, nullptr );
-        Vulkan.SwapChain.Images[i].View = VK_NULL_HANDLE;
-      }
-    }
-    Vulkan.SwapChain.Images.clear();
 
     VkSurfaceCapabilitiesKHR surface_capabilities;
     if( vkGetPhysicalDeviceSurfaceCapabilitiesKHR( Vulkan.PhysicalDevice, Vulkan.PresentationSurface, &surface_capabilities ) != VK_SUCCESS ) {
@@ -501,7 +481,7 @@ namespace ApiWithoutSecrets {
     VkImageUsageFlags             desired_usage = GetSwapChainUsageFlags( surface_capabilities );
     VkSurfaceTransformFlagBitsKHR desired_transform = GetSwapChainTransform( surface_capabilities );
     VkPresentModeKHR              desired_present_mode = GetSwapChainPresentMode( present_modes );
-    VkSwapchainKHR                old_swap_chain = Vulkan.SwapChain.Handle;
+    VkSwapchainKHR                old_swap_chain = Vulkan.SwapChain;
 
     if( static_cast<int>(desired_usage) == -1 ) {
       return false;
@@ -536,7 +516,7 @@ namespace ApiWithoutSecrets {
       old_swap_chain                                // VkSwapchainKHR                 oldSwapchain
     };
 
-    if( vkCreateSwapchainKHR( Vulkan.Device, &swap_chain_create_info, nullptr, &Vulkan.SwapChain.Handle ) != VK_SUCCESS ) {
+    if( vkCreateSwapchainKHR( Vulkan.Device, &swap_chain_create_info, nullptr, &Vulkan.SwapChain ) != VK_SUCCESS ) {
       std::cout << "Could not create swap chain!" << std::endl;
       return false;
     }
@@ -544,79 +524,16 @@ namespace ApiWithoutSecrets {
       vkDestroySwapchainKHR( Vulkan.Device, old_swap_chain, nullptr );
     }
 
-    Vulkan.SwapChain.Format = desired_format.format;
-
-    uint32_t image_count = 0;
-    if( (vkGetSwapchainImagesKHR( Vulkan.Device, Vulkan.SwapChain.Handle, &image_count, nullptr ) != VK_SUCCESS) ||
-        (image_count == 0) ) {
-      std::cout << "Could not get swap chain images!" << std::endl;
-      return false;
-    }
-    Vulkan.SwapChain.Images.resize( image_count );
-
-    std::vector<VkImage> images( image_count );
-    if( vkGetSwapchainImagesKHR( Vulkan.Device, Vulkan.SwapChain.Handle, &image_count, images.data() ) != VK_SUCCESS ) {
-      std::cout << "Could not get swap chain images!" << std::endl;
-      return false;
-    }
-
-    for( size_t i = 0; i < Vulkan.SwapChain.Images.size(); ++i ) {
-      Vulkan.SwapChain.Images[i].Handle = images[i];
-    }
-    Vulkan.SwapChain.Extent = desired_extent;
-
-    return CreateSwapChainImageViews();
-  }
-
-  bool VulkanCommon::CreateSwapChainImageViews() {
-    for( size_t i = 0; i < Vulkan.SwapChain.Images.size(); ++i ) {
-      VkImageViewCreateInfo image_view_create_info = {
-        VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,   // VkStructureType                sType
-        nullptr,                                    // const void                    *pNext
-        0,                                          // VkImageViewCreateFlags         flags
-        Vulkan.SwapChain.Images[i].Handle,          // VkImage                        image
-        VK_IMAGE_VIEW_TYPE_2D,                      // VkImageViewType                viewType
-        GetSwapChain().Format,                      // VkFormat                       format
-        {                                           // VkComponentMapping             components
-          VK_COMPONENT_SWIZZLE_IDENTITY,              // VkComponentSwizzle             r
-          VK_COMPONENT_SWIZZLE_IDENTITY,              // VkComponentSwizzle             g
-          VK_COMPONENT_SWIZZLE_IDENTITY,              // VkComponentSwizzle             b
-          VK_COMPONENT_SWIZZLE_IDENTITY               // VkComponentSwizzle             a
-        },
-        {                                           // VkImageSubresourceRange        subresourceRange
-          VK_IMAGE_ASPECT_COLOR_BIT,                  // VkImageAspectFlags             aspectMask
-          0,                                          // uint32_t                       baseMipLevel
-          1,                                          // uint32_t                       levelCount
-          0,                                          // uint32_t                       baseArrayLayer
-          1                                           // uint32_t                       layerCount
-        }
-      };
-
-      if( vkCreateImageView( GetDevice(), &image_view_create_info, nullptr, &Vulkan.SwapChain.Images[i].View ) != VK_SUCCESS ) {
-        std::cout << "Could not create image view for framebuffer!" << std::endl;
-        return false;
-      }
-    }
-
     CanRender = true;
 
     return true;
   }
 
-  bool VulkanCommon::CheckExtensionAvailability( const char *extension_name, const std::vector<VkExtensionProperties> &available_extensions ) {
-    for( size_t i = 0; i < available_extensions.size(); ++i ) {
-      if( strcmp( available_extensions[i].extensionName, extension_name ) == 0 ) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  uint32_t VulkanCommon::GetSwapChainNumImages( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
+  uint32_t Tutorial02::GetSwapChainNumImages( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
     // Set of images defined in a swap chain may not always be available for application to render to:
     // One may be displayed and one may wait in a queue to be presented
     // If application wants to use more images at the same time it must ask for more images
-    uint32_t image_count = surface_capabilities.minImageCount + 2;
+    uint32_t image_count = surface_capabilities.minImageCount + 1;
     if( (surface_capabilities.maxImageCount > 0) &&
         (image_count > surface_capabilities.maxImageCount) ) {
       image_count = surface_capabilities.maxImageCount;
@@ -624,7 +541,7 @@ namespace ApiWithoutSecrets {
     return image_count;
   }
 
-  VkSurfaceFormatKHR VulkanCommon::GetSwapChainFormat( std::vector<VkSurfaceFormatKHR> &surface_formats ) {
+  VkSurfaceFormatKHR Tutorial02::GetSwapChainFormat( std::vector<VkSurfaceFormatKHR> &surface_formats ) {
     // If the list contains only one entry with undefined format
     // it means that there are no preferred surface formats and any can be chosen
     if( (surface_formats.size() == 1) &&
@@ -644,7 +561,7 @@ namespace ApiWithoutSecrets {
     return surface_formats[0];
   }
 
-  VkExtent2D VulkanCommon::GetSwapChainExtent( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
+  VkExtent2D Tutorial02::GetSwapChainExtent( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
     // Special value of surface extent is width == height == -1
     // If this is so we define the size by ourselves but it must fit within defined confines
     if( surface_capabilities.currentExtent.width == -1 ) {
@@ -668,13 +585,13 @@ namespace ApiWithoutSecrets {
     return surface_capabilities.currentExtent;
   }
 
-  VkImageUsageFlags VulkanCommon::GetSwapChainUsageFlags( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
+  VkImageUsageFlags Tutorial02::GetSwapChainUsageFlags( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
     // Color attachment flag must always be supported
     // We can define other usage flags but we always need to check if they are supported
-    if( surface_capabilities.supportedUsageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ) {
-      return VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    if( surface_capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT ) {
+      return VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     }
-    std::cout << "VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT image usage is not supported by the swap chain!" << std::endl
+    std::cout << "VK_IMAGE_USAGE_TRANSFER_DST image usage is not supported by the swap chain!" << std::endl
       << "Supported swap chain's image usages include:" << std::endl
       << (surface_capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT              ? "    VK_IMAGE_USAGE_TRANSFER_SRC\n" : "")
       << (surface_capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT              ? "    VK_IMAGE_USAGE_TRANSFER_DST\n" : "")
@@ -688,7 +605,7 @@ namespace ApiWithoutSecrets {
     return static_cast<VkImageUsageFlags>(-1);
   }
 
-  VkSurfaceTransformFlagBitsKHR VulkanCommon::GetSwapChainTransform( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
+  VkSurfaceTransformFlagBitsKHR Tutorial02::GetSwapChainTransform( VkSurfaceCapabilitiesKHR &surface_capabilities ) {
     // Sometimes images must be transformed before they are presented (i.e. due to device's orienation
     // being other than default orientation)
     // If the specified transform is other than current transform, presentation engine will transform image
@@ -702,21 +619,14 @@ namespace ApiWithoutSecrets {
     }
   }
 
-  VkPresentModeKHR VulkanCommon::GetSwapChainPresentMode( std::vector<VkPresentModeKHR> &present_modes ) {
+  VkPresentModeKHR Tutorial02::GetSwapChainPresentMode( std::vector<VkPresentModeKHR> &present_modes ) {
+    // FIFO present mode is always available
     // MAILBOX is the lowest latency V-Sync enabled mode (something like triple-buffering) so use it if available
     for( VkPresentModeKHR &present_mode : present_modes ) {
       if( present_mode == VK_PRESENT_MODE_MAILBOX_KHR ) {
         return present_mode;
       }
     }
-    // IMMEDIATE mode allows us to display frames in a V-Sync independent manner so it can introduce screen tearing
-    // But this mode is the best for benchmarking purposes if we want to check the real number of FPS
-    for( VkPresentModeKHR &present_mode : present_modes ) {
-      if( present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR ) {
-        return present_mode;
-      }
-    }
-    // FIFO present mode is always available
     for( VkPresentModeKHR &present_mode : present_modes ) {
       if( present_mode == VK_PRESENT_MODE_FIFO_KHR ) {
         return present_mode;
@@ -726,18 +636,216 @@ namespace ApiWithoutSecrets {
     return static_cast<VkPresentModeKHR>(-1);
   }
 
-  VulkanCommon::~VulkanCommon() {
+  bool Tutorial02::OnWindowSizeChanged() {
+    Clear();
+
+    if( !CreateSwapChain() ) {
+      return false;
+    }
+    if( !CreateCommandBuffers() ) {
+      return false;
+    }
+    return true;
+  }
+
+  bool Tutorial02::CreateCommandBuffers() {
+    VkCommandPoolCreateInfo cmd_pool_create_info = {
+      VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,     // VkStructureType              sType
+      nullptr,                                        // const void*                  pNext
+      0,                                              // VkCommandPoolCreateFlags     flags
+      Vulkan.PresentQueueFamilyIndex                  // uint32_t                     queueFamilyIndex
+    };
+
+    if( vkCreateCommandPool( Vulkan.Device, &cmd_pool_create_info, nullptr, &Vulkan.PresentQueueCmdPool ) != VK_SUCCESS ) {
+      std::cout << "Could not create a command pool!" << std::endl;
+      return false;
+    }
+
+    uint32_t image_count = 0;
+    if( (vkGetSwapchainImagesKHR( Vulkan.Device, Vulkan.SwapChain, &image_count, nullptr ) != VK_SUCCESS) ||
+        (image_count == 0) ) {
+      std::cout << "Could not get the number of swap chain images!" << std::endl;
+      return false;
+    }
+
+    Vulkan.PresentQueueCmdBuffers.resize( image_count );
+
+    VkCommandBufferAllocateInfo cmd_buffer_allocate_info = {
+      VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, // VkStructureType              sType
+      nullptr,                                        // const void*                  pNext
+      Vulkan.PresentQueueCmdPool,                     // VkCommandPool                commandPool
+      VK_COMMAND_BUFFER_LEVEL_PRIMARY,                // VkCommandBufferLevel         level
+      image_count                                     // uint32_t                     bufferCount
+    };
+    if( vkAllocateCommandBuffers( Vulkan.Device, &cmd_buffer_allocate_info, Vulkan.PresentQueueCmdBuffers.data() ) != VK_SUCCESS ) {
+      std::cout << "Could not allocate command buffers!" << std::endl;
+      return false;
+    }
+
+    if( !RecordCommandBuffers() ) {
+      std::cout << "Could not record command buffers!" << std::endl;
+      return false;
+    }
+    return true;
+  }
+
+  bool Tutorial02::RecordCommandBuffers() {
+    uint32_t image_count = static_cast<uint32_t>(Vulkan.PresentQueueCmdBuffers.size());
+
+    std::vector<VkImage> swap_chain_images( image_count );
+    if( vkGetSwapchainImagesKHR( Vulkan.Device, Vulkan.SwapChain, &image_count, swap_chain_images.data() ) != VK_SUCCESS ) {
+      std::cout << "Could not get swap chain images!" << std::endl;
+      return false;
+    }
+
+    VkCommandBufferBeginInfo cmd_buffer_begin_info = {
+      VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,  // VkStructureType                        sType
+      nullptr,                                      // const void                            *pNext
+      VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT, // VkCommandBufferUsageFlags              flags
+      nullptr                                       // const VkCommandBufferInheritanceInfo  *pInheritanceInfo
+    };
+
+    VkClearColorValue clear_color = {
+      { 1.0f, 0.8f, 0.4f, 0.0f }
+    };
+
+    VkImageSubresourceRange image_subresource_range = {
+      VK_IMAGE_ASPECT_COLOR_BIT,                    // VkImageAspectFlags                     aspectMask
+      0,                                            // uint32_t                               baseMipLevel
+      1,                                            // uint32_t                               levelCount
+      0,                                            // uint32_t                               baseArrayLayer
+      1                                             // uint32_t                               layerCount
+    };
+
+    for( uint32_t i = 0; i < image_count; ++i ) {
+      VkImageMemoryBarrier barrier_from_present_to_clear = {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,     // VkStructureType                        sType
+        nullptr,                                    // const void                            *pNext
+        VK_ACCESS_MEMORY_READ_BIT,                  // VkAccessFlags                          srcAccessMask
+        VK_ACCESS_TRANSFER_WRITE_BIT,               // VkAccessFlags                          dstAccessMask
+        VK_IMAGE_LAYOUT_UNDEFINED,                  // VkImageLayout                          oldLayout
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,       // VkImageLayout                          newLayout
+        VK_QUEUE_FAMILY_IGNORED,                    // uint32_t                               srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED,                    // uint32_t                               dstQueueFamilyIndex
+        swap_chain_images[i],                       // VkImage                                image
+        image_subresource_range                     // VkImageSubresourceRange                subresourceRange
+      };
+
+      VkImageMemoryBarrier barrier_from_clear_to_present = {
+        VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,     // VkStructureType                        sType
+        nullptr,                                    // const void                            *pNext
+        VK_ACCESS_TRANSFER_WRITE_BIT,               // VkAccessFlags                          srcAccessMask
+        VK_ACCESS_MEMORY_READ_BIT,                  // VkAccessFlags                          dstAccessMask
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,       // VkImageLayout                          oldLayout
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,            // VkImageLayout                          newLayout
+        VK_QUEUE_FAMILY_IGNORED,                    // uint32_t                               srcQueueFamilyIndex
+        VK_QUEUE_FAMILY_IGNORED,                    // uint32_t                               dstQueueFamilyIndex
+        swap_chain_images[i],                       // VkImage                                image
+        image_subresource_range                     // VkImageSubresourceRange                subresourceRange
+      };
+
+      vkBeginCommandBuffer( Vulkan.PresentQueueCmdBuffers[i], &cmd_buffer_begin_info );
+      vkCmdPipelineBarrier( Vulkan.PresentQueueCmdBuffers[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier_from_present_to_clear );
+
+      vkCmdClearColorImage( Vulkan.PresentQueueCmdBuffers[i], swap_chain_images[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clear_color, 1, &image_subresource_range );
+
+      vkCmdPipelineBarrier( Vulkan.PresentQueueCmdBuffers[i], VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier_from_clear_to_present );
+      if( vkEndCommandBuffer( Vulkan.PresentQueueCmdBuffers[i] ) != VK_SUCCESS ) {
+        std::cout << "Could not record command buffers!" << std::endl;
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  void Tutorial02::Clear() {
     if( Vulkan.Device != VK_NULL_HANDLE ) {
       vkDeviceWaitIdle( Vulkan.Device );
 
-      for( size_t i = 0; i < Vulkan.SwapChain.Images.size(); ++i ) {
-        if( Vulkan.SwapChain.Images[i].View != VK_NULL_HANDLE ) {
-          vkDestroyImageView( GetDevice(), Vulkan.SwapChain.Images[i].View, nullptr );
-        }
+      if( (Vulkan.PresentQueueCmdBuffers.size() > 0) && (Vulkan.PresentQueueCmdBuffers[0] != VK_NULL_HANDLE) ) {
+        vkFreeCommandBuffers( Vulkan.Device, Vulkan.PresentQueueCmdPool, static_cast<uint32_t>(Vulkan.PresentQueueCmdBuffers.size()), Vulkan.PresentQueueCmdBuffers.data() );
+        Vulkan.PresentQueueCmdBuffers.clear();
       }
 
-      if( Vulkan.SwapChain.Handle != VK_NULL_HANDLE ) {
-        vkDestroySwapchainKHR( Vulkan.Device, Vulkan.SwapChain.Handle, nullptr );
+      if( Vulkan.PresentQueueCmdPool != VK_NULL_HANDLE ) {
+        vkDestroyCommandPool( Vulkan.Device, Vulkan.PresentQueueCmdPool, nullptr );
+        Vulkan.PresentQueueCmdPool = VK_NULL_HANDLE;
+      }
+    }
+  }
+
+  bool Tutorial02::Draw() {
+    uint32_t image_index;
+    VkResult result = vkAcquireNextImageKHR( Vulkan.Device, Vulkan.SwapChain, UINT64_MAX, Vulkan.ImageAvailableSemaphore, VK_NULL_HANDLE, &image_index );
+    switch( result ) {
+      case VK_SUCCESS:
+      case VK_SUBOPTIMAL_KHR:
+        break;
+      case VK_ERROR_OUT_OF_DATE_KHR:
+        return OnWindowSizeChanged();
+      default:
+        std::cout << "Problem occurred during swap chain image acquisition!" << std::endl;
+        return false;
+    }
+
+    VkPipelineStageFlags wait_dst_stage_mask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    VkSubmitInfo submit_info = {
+      VK_STRUCTURE_TYPE_SUBMIT_INFO,                // VkStructureType              sType
+      nullptr,                                      // const void                  *pNext
+      1,                                            // uint32_t                     waitSemaphoreCount
+      &Vulkan.ImageAvailableSemaphore,              // const VkSemaphore           *pWaitSemaphores
+      &wait_dst_stage_mask,                         // const VkPipelineStageFlags  *pWaitDstStageMask;
+      1,                                            // uint32_t                     commandBufferCount
+      &Vulkan.PresentQueueCmdBuffers[image_index],  // const VkCommandBuffer       *pCommandBuffers
+      1,                                            // uint32_t                     signalSemaphoreCount
+      &Vulkan.RenderingFinishedSemaphore            // const VkSemaphore           *pSignalSemaphores
+    };
+
+    if( vkQueueSubmit( Vulkan.PresentQueue, 1, &submit_info, VK_NULL_HANDLE ) != VK_SUCCESS ) {
+      return false;
+    }
+
+    VkPresentInfoKHR present_info = {
+      VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,           // VkStructureType              sType
+      nullptr,                                      // const void                  *pNext
+      1,                                            // uint32_t                     waitSemaphoreCount
+      &Vulkan.RenderingFinishedSemaphore,           // const VkSemaphore           *pWaitSemaphores
+      1,                                            // uint32_t                     swapchainCount
+      &Vulkan.SwapChain,                            // const VkSwapchainKHR        *pSwapchains
+      &image_index,                                 // const uint32_t              *pImageIndices
+      nullptr                                       // VkResult                    *pResults
+    };
+    result = vkQueuePresentKHR( Vulkan.PresentQueue, &present_info );
+
+    switch( result ) {
+      case VK_SUCCESS:
+        break;
+      case VK_ERROR_OUT_OF_DATE_KHR:
+      case VK_SUBOPTIMAL_KHR:
+        return OnWindowSizeChanged();
+      default:
+        std::cout << "Problem occurred during image presentation!" << std::endl;
+        return false;
+    }
+
+    return true;
+  }
+
+  Tutorial02::~Tutorial02() {
+    Clear();
+
+    if( Vulkan.Device != VK_NULL_HANDLE ) {
+      vkDeviceWaitIdle( Vulkan.Device );
+
+      if( Vulkan.ImageAvailableSemaphore != VK_NULL_HANDLE ) {
+        vkDestroySemaphore( Vulkan.Device, Vulkan.ImageAvailableSemaphore, nullptr );
+      }
+      if( Vulkan.RenderingFinishedSemaphore != VK_NULL_HANDLE ) {
+        vkDestroySemaphore( Vulkan.Device, Vulkan.RenderingFinishedSemaphore, nullptr );
+      }
+      if( Vulkan.SwapChain != VK_NULL_HANDLE ) {
+        vkDestroySwapchainKHR( Vulkan.Device, Vulkan.SwapChain, nullptr );
       }
       vkDestroyDevice( Vulkan.Device, nullptr );
     }

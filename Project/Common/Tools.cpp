@@ -1,8 +1,18 @@
-/////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Copyright 2017 Intel Corporation
 //
-// Licensed under the Apache License, Version 2.0 (the "License");// you may not use this file except in compliance with the License.// You may obtain a copy of the License at//// http://www.apache.org/licenses/LICENSE-2.0//// Unless required by applicable law or agreed to in writing, software// distributed under the License is distributed on an "AS IS" BASIS,// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.// See the License for the specific language governing permissions and// limitations under the License.
-/////////////////////////////////////////////////////////////////////////////////////////////
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License.  You may obtain a copy
+// of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+// License for the specific language governing permissions and limitations
+// under the License.
+////////////////////////////////////////////////////////////////////////////////
 
 #include <cmath>
 #include <fstream>
@@ -98,18 +108,18 @@ namespace ApiWithoutSecrets {
         0.0f,
 
         0.0f,
-        f,
+        -f,
         0.0f,
         0.0f,
 
         0.0f,
         0.0f,
-        (near_clip + far_clip) / (near_clip - far_clip),
+        far_clip / (near_clip - far_clip),
         -1.0f,
 
         0.0f,
         0.0f,
-        (2.0f * near_clip * far_clip) / (near_clip - far_clip),
+        (near_clip * far_clip) / (near_clip - far_clip),
         0.0f
       };
     }
@@ -133,12 +143,12 @@ namespace ApiWithoutSecrets {
 
         0.0f,
         0.0f,
-        -2.0f / (far_plane - near_plane),
+        1.0f / (near_plane - far_plane),
         0.0f,
 
         -(right_plane + left_plane) / (right_plane - left_plane),
         -(bottom_plane + top_plane) / (bottom_plane - top_plane),
-        -(far_plane + near_plane) / (far_plane - near_plane),
+        near_plane / (near_plane - far_plane),
         1.0f
       };
     }

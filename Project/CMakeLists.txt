@@ -1,4 +1,4 @@
-# /////////////////////////////////////////////////////////////////////////////////////////////
+	# /////////////////////////////////////////////////////////////////////////////////////////////
 # // Copyright 2017 Intel Corporation
 # //
 # // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +16,8 @@
 
 cmake_minimum_required (VERSION 3.0)
 project( "IntroductionToVulkan" )
+
+set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 
 if( CMAKE_BUILD_TYPE STREQUAL "" )
 	set( CMAKE_BUILD_TYPE "debug" )
@@ -37,6 +39,7 @@ if( USE_PLATFORM STREQUAL "VK_USE_PLATFORM_WIN32_KHR" )
 	set( CMAKE_CXX_FLAGS_RELEASE         "${CMAKE_CXX_FLAGS_RELEASE} /MT" )
 	set( CMAKE_CXX_FLAGS_DEBUG           "${CMAKE_CXX_FLAGS_DEBUG} /MTd" )
 	set( PLATFORM_LIBRARY                "" )
+	add_definitions( -DNOMINMAX )
 elseif( USE_PLATFORM STREQUAL "VK_USE_PLATFORM_XCB_KHR" )
 	add_definitions( -std=c++11 )
 	set( PLATFORM_LIBRARY dl xcb )
@@ -49,46 +52,49 @@ if( CMAKE_BUILD_TYPE STREQUAL "debug" )
 	add_definitions(-D_DEBUG)
 endif()
 
-macro( add_executable _number _name )
+macro( add_executable _type _number _name )
 	set( TARGET_NAME "${_number}-${_name}" )
-	_add_executable( ${TARGET_NAME} ${ARGN} )
+	file( GLOB PROJECT_FILES "${CMAKE_CURRENT_LIST_DIR}/${_type}/${_number}/*.*" )
+	_add_executable( ${TARGET_NAME} ${ARGN} ${PROJECT_FILES} )
 	target_compile_definitions( ${TARGET_NAME} PRIVATE USE_SWAPCHAIN_EXTENSIONS )
 	target_link_libraries( ${TARGET_NAME} ${PLATFORM_LIBRARY} )
-	
-	if( EXISTS "${CMAKE_SOURCE_DIR}/Tutorial${_number}/Data${_number}/" )
-		file( COPY "${CMAKE_SOURCE_DIR}/Tutorial${_number}/Data${_number}/" DESTINATION "${CMAKE_SOURCE_DIR}/build/Data${_number}" )
+	set_property( TARGET ${TARGET_NAME} PROPERTY FOLDER "${_type}" )
+
+	if( EXISTS "${CMAKE_SOURCE_DIR}/${_type}/${_number}/Data" )
+		file( GLOB DATA_FILES "${CMAKE_SOURCE_DIR}/${_type}/${_number}/Data/*.*" )
+		file( COPY ${DATA_FILES} DESTINATION "${CMAKE_SOURCE_DIR}/build/Data/${_type}/${_number}/" )
 	endif()
 endmacro()
 
 add_definitions( -DVK_NO_PROTOTYPES )
 add_definitions( -D${USE_PLATFORM} )
-include_directories( Include )
-include_directories( Common )
+include_directories( "External" )
+include_directories( "Common" )
 
-set( BASIC_SHARED_HEADER_FILES
+file( GLOB BASIC_SHARED_HEADER_FILES
 		"Common/OperatingSystem.h"
 		"Common/ListOfFunctions.inl"
 		"Common/VulkanFunctions.h" )
 
-set( BASIC_SHARED_SOURCE_FILES
+file( GLOB BASIC_SHARED_SOURCE_FILES
 		"Common/OperatingSystem.cpp"
 		"Common/VulkanFunctions.cpp" )
 
-set( EXTERNAL_HEADER_FILES
-		"Include/vk_platform.h"
-		"Include/vulkan.h"
-		"Include/stb_image.h" )
+file( GLOB EXTERNAL_HEADER_FILES
+		"External/vk_platform.h"
+		"External/vulkan.h"
+		"External/stb_image.h" )
 
 set( ALL_BASIC_SHARED_FILES
 		${BASIC_SHARED_HEADER_FILES}
 		${BASIC_SHARED_SOURCE_FILES}
 		${EXTERNAL_HEADER_FILES} )
 
-set( ADVANCED_SHARED_HEADER_FILES
+file( GLOB ADVANCED_SHARED_HEADER_FILES
 		"Common/Tools.h"
 		"Common/VulkanCommon.h" )
 
-set( ADVANCED_SHARED_SOURCE_FILES
+file( GLOB ADVANCED_SHARED_SOURCE_FILES
 		"Common/Tools.cpp"
 		"Common/VulkanCommon.cpp" )
 
@@ -97,59 +103,33 @@ set( ALL_BASIC_AND_ADVANCED_SHARED_FILES
 		${ADVANCED_SHARED_HEADER_FILES}
 		${ADVANCED_SHARED_SOURCE_FILES} )
 
-set( TUTORIAL_HEADER_FILES REGULAR_EXPRESSION
-		"Tutorial.*h" )
+set( PROJECT_HEADER_FILES REGULAR_EXPRESSION
+		"(Tutorial|Benchmark)[0-9]+[.]h" )
 
-set( TUTORIAL_SOURCE_FILES REGULAR_EXPRESSION
-		"Tutorial.*cpp" )
+set( PROJECT_SOURCE_FILES REGULAR_EXPRESSION
+		"(Tutorial|Benchmark)[0-9]+[.]cpp" )
 
-source_group( "Header Files\\Common" FILES ${BASIC_SHARED_HEADER_FILES} )
-source_group( "Source Files\\Common" FILES ${BASIC_SHARED_SOURCE_FILES} )
-source_group( "Header Files\\Include" FILES ${EXTERNAL_HEADER_FILES} )
-source_group( "Header Files\\Common" FILES ${ADVANCED_SHARED_HEADER_FILES} )
-source_group( "Source Files\\Common" FILES ${ADVANCED_SHARED_SOURCE_FILES} )
-source_group( "Header Files" FILES ${TUTORIAL_HEADER_FILES} )
-source_group( "Source Files" FILES ${TUTORIAL_SOURCE_FILES} )
+source_group( "Header Files\\Common" FILES ${BASIC_SHARED_HEADER_FILES} ${ADVANCED_SHARED_HEADER_FILES} )
+source_group( "Source Files\\Common" FILES ${BASIC_SHARED_SOURCE_FILES} ${ADVANCED_SHARED_SOURCE_FILES} )
+source_group( "Header Files\\External" FILES ${EXTERNAL_HEADER_FILES} )
+source_group( "Header Files" FILES ${PROJECT_HEADER_FILES} )
+source_group( "Source Files" FILES ${PROJECT_SOURCE_FILES} )
 
-_add_executable( "01-The_Beginning"
-	${ALL_BASIC_SHARED_FILES}
-	Tutorial01/Tutorial01.h
-	Tutorial01/main.cpp
-	Tutorial01/Tutorial01.cpp )
+_add_executable( "01-The_Beginning" ${ALL_BASIC_SHARED_FILES}
+	Tutorials/01/Tutorial01.h
+	Tutorials/01/main.cpp
+	Tutorials/01/Tutorial01.cpp )
 	target_link_libraries( "01-The_Beginning" ${PLATFORM_LIBRARY} )
+	set_property( TARGET "01-The_Beginning" PROPERTY FOLDER "Tutorials" )
 
-add_executable( "02" "Swapchain"
-	${ALL_BASIC_SHARED_FILES}
-	Tutorial02/Tutorial02.h
-	Tutorial02/main.cpp
-	Tutorial02/Tutorial02.cpp )
+add_executable( "Tutorials" "02" "Swapchain" ${ALL_BASIC_SHARED_FILES} )
 
-add_executable( "03" "First_Triangle"
-	${ALL_BASIC_AND_ADVANCED_SHARED_FILES}
-	Tutorial03/Tutorial03.h
-	Tutorial03/main.cpp
-	Tutorial03/Tutorial03.cpp )
+add_executable( "Tutorials" "03" "First_Triangle" ${ALL_BASIC_AND_ADVANCED_SHARED_FILES} )
 
-add_executable( "04" "Vertex_Attributes"
-	${ALL_BASIC_AND_ADVANCED_SHARED_FILES}
-	Tutorial04/Tutorial04.h
-	Tutorial04/main.cpp
-	Tutorial04/Tutorial04.cpp )
-	
-add_executable( "05" "Staging_Resources"
-	${ALL_BASIC_AND_ADVANCED_SHARED_FILES}
-	Tutorial05/Tutorial05.h
-	Tutorial05/main.cpp
-	Tutorial05/Tutorial05.cpp )
+add_executable( "Tutorials" "04" "Vertex_Attributes" ${ALL_BASIC_AND_ADVANCED_SHARED_FILES} )
 
-add_executable( "06" "Descriptor_Sets"
-	${ALL_BASIC_AND_ADVANCED_SHARED_FILES}
-	Tutorial06/Tutorial06.h
-	Tutorial06/main.cpp
-	Tutorial06/Tutorial06.cpp )
+add_executable( "Tutorials" "05" "Staging_Resources" ${ALL_BASIC_AND_ADVANCED_SHARED_FILES} )
 
-add_executable( "07" "Uniform_Buffers"
-	${ALL_BASIC_AND_ADVANCED_SHARED_FILES}
-	Tutorial07/Tutorial07.h
-	Tutorial07/main.cpp
-	Tutorial07/Tutorial07.cpp )
+add_executable( "Tutorials" "06" "Descriptor_Sets" ${ALL_BASIC_AND_ADVANCED_SHARED_FILES} )
+
+add_executable( "Tutorials" "07" "Uniform_Buffers" ${ALL_BASIC_AND_ADVANCED_SHARED_FILES} )

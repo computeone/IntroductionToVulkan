@@ -14,15 +14,32 @@
 // under the License.
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "vulkan.h"
+#include "Tutorial02.h"
 
-namespace ApiWithoutSecrets {
+int main( int argc, char **argv ) {
+  ApiWithoutSecrets::OS::Window window;
+  ApiWithoutSecrets::Tutorial02 tutorial02;
 
-#define VK_EXPORTED_FUNCTION( fun ) PFN_##fun fun;
-#define VK_GLOBAL_LEVEL_FUNCTION( fun ) PFN_##fun fun;
-#define VK_INSTANCE_LEVEL_FUNCTION( fun ) PFN_##fun fun;
-#define VK_DEVICE_LEVEL_FUNCTION( fun ) PFN_##fun fun;
+  // Window creation
+  if( !window.Create( "02 - Swap chain" ) ) {
+    return -1;
+  }
 
-#include "ListOfFunctions.inl"
+  // Vulkan preparations and initialization
+  if( !tutorial02.PrepareVulkan( window.GetParameters() ) ) {
+    return -1;
+  }
+  if( !tutorial02.CreateSwapChain() ) {
+    return -1;
+  }
+  if( !tutorial02.CreateCommandBuffers() ) {
+    return -1;
+  }
 
-} // namespace ApiWithoutSecrets
+  // Rendering loop
+  if( !window.RenderingLoop( tutorial02 ) ) {
+    return -1;
+  }
+
+  return 0;
+}
